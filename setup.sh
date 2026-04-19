@@ -281,6 +281,9 @@ run_root "$VENV_DIR/bin/python" -m pip install -r "$APP_DIR/requirements.txt"
 echo "Installing global launcher..."
 run_root tee "$LAUNCHER" > /dev/null <<EOF
 #!/bin/bash
+if [ ! -t 0 ] && [ -r /dev/tty ] && [ -w /dev/tty ]; then
+    exec </dev/tty >/dev/tty 2>/dev/tty
+fi
 exec "$VENV_DIR/bin/python" "$APP_DIR/backup_tool.py" "\$@"
 EOF
 

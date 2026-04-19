@@ -34,6 +34,26 @@ LOCK_FILE = Path("/tmp/backup_tool.lock")
 DEFAULT_RETENTION_DAYS = 7
 
 os.makedirs(CONFIG_DIR, exist_ok=True)
+TTY_INPUT = None
+
+
+def get_input_stream():
+    """Return an interactive input stream, preferring /dev/tty when available."""
+    global TTY_INPUT
+
+    if hasattr(sys.stdin, "isatty") and sys.stdin.isatty():
+        return sys.stdin
+
+    if TTY_INPUT is None:
+        try:
+            TTY_INPUT = open("/dev/tty", "r", encoding="utf-8", errors="ignore")
+        except OSError:
+            TTY_INPUT = False
+
+    if TTY_INPUT:
+        return TTY_INPUT
+
+    return sys.stdin
 
 
 # ─────────────────────────────────────────────
@@ -60,7 +80,7 @@ def safe_input(prompt: str = "") -> str:
         sys.stdout.write(prompt)
         sys.stdout.flush()
     try:
-        line = sys.stdin.readline()
+        line = get_input_stream().readline()
         if line == "":
             raise EOFError
         return line.strip()

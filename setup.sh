@@ -141,6 +141,67 @@ ensure_venv_support() {
     rm -rf "$test_dir"
 }
 
+ensure_system_pip_support() {
+    local manager
+    manager="$(detect_pkg_manager)"
+
+    case "$manager" in
+        apt)
+            install_packages "$manager" python3-pip
+            ;;
+        dnf|yum|zypper)
+            install_packages "$manager" python3-pip
+            ;;
+        pacman)
+            install_packages "$manager" python-pip
+            ;;
+        *)
+            echo "Could not install pip automatically."
+            exit 1
+            ;;
+    esac
+}
+
+ensure_pip_in_venv() {
+    if [ -x "$VENV_DIR/bin/pip" ]; then
+        return
+    fi
+
+    echo "Repairing missing pip inside virtual environment..."
+
+    if [ -x "$VENV_DIR/bin/python" ] && run_root "$VENV_DIR/bin/python" -m ensurepip --upgrade >/dev/null 2>&1; then
+        :
+    else
+        ensure_system_pip_support
+        echo "Recreating virtual environment..."
+        run_root rm -rf "$VENV_DIR"
+        run_root python3 -m venv "$VENV_DIR"
+        if [ ! -x "$VENV_DIR/bin/pip" ] && [ -x "$VENV_DIR/bin/python" ]; then
+            run_root "$VENV_DIR/bin/python" -m ensurepip --upgrade >/dev/null 2>&1 || true
+        fi
+    fi
+
+    if [ ! -x "$VENV_DIR/bin/pip" ]; then
+        echo "pip is still unavailable inside the virtual environment."
+        exit 1
+    fi
+}
+
+ensure_valid_venv() {
+    if [ ! -d "$VENV_DIR" ]; then
+        echo "Creating virtual environment..."
+        run_root python3 -m venv "$VENV_DIR"
+    fi
+
+    if [ ! -x "$VENV_DIR/bin/python" ]; then
+        echo "Recreating broken virtual environment..."
+        run_root rm -rf "$VENV_DIR"
+        run_root python3 -m venv "$VENV_DIR"
+    fi
+
+    ensure_pip_in_venv
+}
+
 echo "Installing Backup Tool..."
 
 ensure_python3
@@ -153,10 +214,7 @@ echo "Copying project files..."
 run_root cp "$SCRIPT_DIR/backup_tool.py" "$APP_DIR/backup_tool.py"
 run_root cp "$SCRIPT_DIR/requirements.txt" "$APP_DIR/requirements.txt"
 
-if [ ! -d "$VENV_DIR" ]; then
-    echo "Creating virtual environment..."
-    run_root python3 -m venv "$VENV_DIR"
-fi
+ensure_valid_venv
 
 echo "Installing Python dependencies..."
 run_root "$VENV_DIR/bin/pip" install --upgrade pip

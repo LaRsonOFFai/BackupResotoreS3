@@ -30,6 +30,7 @@ wget -qO- https://raw.githubusercontent.com/LaRsonOFFai/BackupResotoreS3/main/in
 
 - скачивает нужные файлы проекта
 - при необходимости доустанавливает `python3` и поддержку `venv`
+- если `venv` уже создан криво или без `pip`, автоматически чинит или пересоздаёт его
 - ставит приложение в `/opt/backup-tool`
 - создаёт отдельный `venv` в `/opt/backup-tool/venv`
 - ставит глобальную команду `backups3` в `/usr/local/bin/backups3`

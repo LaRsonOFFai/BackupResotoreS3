@@ -1,45 +1,47 @@
 #!/bin/bash
 
-echo "🚀 Installing Backup Tool dependencies..."
+set -euo pipefail
 
-# Check Python version
-python3 --version || { echo "❌ Python 3 is required!"; exit 1; }
+APP_DIR="/opt/backup-tool"
+VENV_DIR="$APP_DIR/venv"
+LAUNCHER="/usr/local/bin/backups3"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Create virtual environment (optional)
-if [ ! -d "venv" ]; then
-    echo "📦 Creating virtual environment..."
-    python3 -m venv venv
+echo "Installing Backup Tool..."
+
+if ! command -v python3 >/dev/null 2>&1; then
+    echo "Python 3 is required."
+    exit 1
 fi
 
-# Activate venv
-source venv/bin/activate
+echo "Preparing application directory..."
+sudo mkdir -p "$APP_DIR"
 
-# Install dependencies
-echo "⬇️  Installing Python packages..."
-pip install -r requirements.txt
+echo "Copying project files..."
+sudo cp "$SCRIPT_DIR/backup_tool.py" "$APP_DIR/backup_tool.py"
+sudo cp "$SCRIPT_DIR/requirements.txt" "$APP_DIR/requirements.txt"
 
-# Создаём symlink для запуска командой 'backups3'
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-echo "🔗 Создаю команду 'backups3'..."
+if [ ! -d "$VENV_DIR" ]; then
+    echo "Creating virtual environment..."
+    sudo python3 -m venv "$VENV_DIR"
+fi
 
-# Копируем backup_tool.py в /opt/backup-tool/
-sudo mkdir -p /opt/backup-tool
-sudo cp "$SCRIPT_DIR/backup_tool.py" /opt/backup-tool/
+echo "Installing Python dependencies..."
+sudo "$VENV_DIR/bin/pip" install --upgrade pip
+sudo "$VENV_DIR/bin/pip" install -r "$APP_DIR/requirements.txt"
 
-# Создаём скрипт в /usr/local/bin
-sudo tee /usr/local/bin/backups3 > /dev/null << 'EOF'
+echo "Installing global launcher..."
+sudo tee "$LAUNCHER" > /dev/null <<EOF
 #!/bin/bash
-python3 /opt/backup-tool/backup_tool.py "$@"
+exec "$VENV_DIR/bin/python" "$APP_DIR/backup_tool.py" "\$@"
 EOF
 
-sudo chmod +x /usr/local/bin/backups3
+sudo chmod +x "$LAUNCHER"
 
 echo ""
-echo "✅ Установка завершена!"
+echo "Installation completed."
+echo "You can now run the tool from any directory with:"
+echo "  backups3"
 echo ""
-echo "📝 Теперь можно запускать из любой директории:"
-echo "   backups3"
-echo ""
-echo "📋 Или с флагами:"
-echo "   backups3 --auto"
-echo "   backups3 backup --path /home/user"
+echo "Launching Backup Tool..."
+exec "$LAUNCHER"

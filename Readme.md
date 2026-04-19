@@ -12,45 +12,38 @@ CLI-инструмент для создания и восстановления
 - запуск по расписанию через `cron`
 - очистку старых backup по retention policy
 
-## Требования
+## Установка в одну команду
 
-- Python 3.8+
-- Linux для `cron`-автоматизации и установки глобальной команды `backups3`
-- `gpg`, если используется шифрование
-
-Зависимости Python:
-
-```txt
-click==8.1.7
-boto3==1.34.0
-requests==2.31.0
-```
-
-## Установка
-
-### Вариант 1. Обычный запуск из проекта
+Если нужно, чтобы пользователь просто скопировал ссылку, запустил установку и сразу попал в программу, используйте:
 
 ```bash
-git clone https://github.com/LaRsonOFFai/BackupResotoreS3.git
-cd BackupResotoreS3
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-python3 backup_tool.py
+curl -fsSL https://raw.githubusercontent.com/LaRsonOFFai/BackupResotoreS3/main/install.sh | bash
 ```
 
-### Вариант 2. Установка глобальной команды `backups3`
+Если на сервере нет `curl`, можно так:
 
-В проекте команда `backups3` уже реализована, но глобально она появляется только после запуска `setup.sh`.
+```bash
+wget -qO- https://raw.githubusercontent.com/LaRsonOFFai/BackupResotoreS3/main/install.sh | bash
+```
 
-Что делает `setup.sh`:
+Что делает этот установщик:
 
-- создаёт `venv`
-- ставит Python-зависимости
-- копирует `backup_tool.py` в `/opt/backup-tool/`
-- создаёт `/usr/local/bin/backups3`
+- скачивает нужные файлы проекта
+- ставит приложение в `/opt/backup-tool`
+- создаёт отдельный `venv` в `/opt/backup-tool/venv`
+- ставит глобальную команду `backups3` в `/usr/local/bin/backups3`
+- сразу запускает программу после завершения установки
 
-Установка:
+После установки команда работает из любой директории:
+
+```bash
+backups3
+backups3 backup --path /home/user/data
+backups3 list
+backups3 restore
+```
+
+## Обычная установка из репозитория
 
 ```bash
 git clone https://github.com/LaRsonOFFai/BackupResotoreS3.git
@@ -59,88 +52,118 @@ chmod +x setup.sh
 ./setup.sh
 ```
 
-После этого можно запускать инструмент из любой директории:
+`setup.sh` теперь тоже:
 
-```bash
-backups3
-backups3 backup --path /home/user/data
-backups3 list
-backups3 restore
-backups3 --auto
+- устанавливает приложение глобально
+- создаёт launcher `backups3`
+- в конце сразу запускает программу
+
+## Требования
+
+- Python 3.8+
+- Linux
+- `sudo`
+- `curl` или `wget` для one-line установки
+- `gpg`, если используется шифрование
+
+Python-зависимости:
+
+```txt
+click==8.1.7
+boto3==1.34.0
+requests==2.31.0
 ```
 
-### Что лежит в файле `backups3`
+## Как работает `backups3`
 
-В репозитории уже есть локальный wrapper-скрипт [backups3](C:/Users/larri/Documents/Codex/2026-04-19-c-users-larri-pycharmprojects-back-restore/Restore-bedolaga/backups3), который запускает `backup_tool.py` из текущей папки проекта.
+В проекте есть два сценария запуска:
 
-Это значит:
+### 1. Локальный launcher в репозитории
 
-- `./backups3` работает прямо из каталога репозитория
-- просто `backups3` из любой папки будет работать только после `setup.sh`
+Файл `backups3` в корне проекта можно запускать так:
+
+```bash
+./backups3
+```
+
+Он полезен для локальной работы прямо из репозитория.
+
+### 2. Глобальная команда после установки
+
+После `install.sh` или `setup.sh` создаётся файл:
+
+```bash
+/usr/local/bin/backups3
+```
+
+Этот launcher использует Python из:
+
+```bash
+/opt/backup-tool/venv/bin/python
+```
+
+и запускает:
+
+```bash
+/opt/backup-tool/backup_tool.py
+```
+
+Именно поэтому команда `backups3` после установки работает из любого места.
 
 ## Быстрый старт
 
-1. Запустите инструмент:
-
-```bash
-python3 backup_tool.py
-```
-
-2. Откройте меню `Setup`
-3. Добавьте хотя бы один S3-аккаунт
+1. Выполните one-line установку или `./setup.sh`
+2. После установки программа откроется автоматически
+3. В меню `Setup` добавьте хотя бы один S3-аккаунт
 4. При необходимости настройте Telegram
 5. При необходимости включите шифрование
 6. Для авто-backup задайте расписание и пути
 
-## Основные возможности
-
-### 1. Backup
-
-Создание архива директории и загрузка в S3:
+Если позже нужно открыть инструмент снова:
 
 ```bash
-python3 backup_tool.py backup --path /home/user/documents
+backups3
 ```
 
-Или, если установлен глобальный launcher:
+## Основные команды
+
+### Backup
 
 ```bash
 backups3 backup --path /home/user/documents
 ```
 
-### 2. Restore
-
-Restore поддерживает два режима:
-
-- `safe` по умолчанию: распаковка в отдельную директорию вида `~/backup_restore_YYYY-MM-DD_HH-MM-SS/`
-- `overwrite`: восстановление в текущую директорию с возможной перезаписью файлов
-
-Примеры:
+### Restore
 
 ```bash
-python3 backup_tool.py restore
-python3 backup_tool.py restore --overwrite
+backups3 restore
+backups3 restore --overwrite
 ```
 
-### 3. Просмотр backup в S3
+### Список backup в S3
 
 ```bash
-python3 backup_tool.py list
+backups3 list
 ```
 
-### 4. Интерактивная настройка
+### Настройка
 
 ```bash
-python3 backup_tool.py setup
+backups3 setup
 ```
 
-Через `Setup` можно настроить:
+### Автозапуск для cron
 
-- S3-аккаунты
-- Telegram-уведомления
-- шифрование
-- расписание backup
-- список директорий для авто-backup
+```bash
+backups3 --auto
+```
+
+## Restore
+
+Поддерживаются два режима:
+
+- `safe` по умолчанию: восстановление в отдельную директорию вида `~/backup_restore_YYYY-MM-DD_HH-MM-SS/`
+- `overwrite`: восстановление в текущую директорию с перезаписью файлов
 
 ## Настройка S3
 
@@ -152,7 +175,7 @@ python3 backup_tool.py setup
 - DigitalOcean Spaces
 - другие S3-совместимые хранилища
 
-При добавлении S3-аккаунта используются:
+Используются параметры:
 
 - `endpoint_url`
 - `access_key`
@@ -160,8 +183,6 @@ python3 backup_tool.py setup
 - `region`
 - `bucket`
 - `prefix`
-
-Если `endpoint_url` не указан, используется стандартный AWS S3.
 
 ## Telegram-уведомления
 
@@ -171,13 +192,11 @@ python3 backup_tool.py setup
 - группы
 - форум-топики через `topic_id`
 
-Для настройки понадобятся:
+Для настройки нужны:
 
 - `BOT_TOKEN`
 - `CHAT_ID`
 - опционально `TOPIC_ID`
-
-Во время настройки отправляется тестовое сообщение.
 
 ## Шифрование
 
@@ -187,7 +206,7 @@ python3 backup_tool.py setup
 gpg --symmetric
 ```
 
-Для работы нужен установленный `gpg`:
+Для установки:
 
 ```bash
 sudo apt install gnupg
@@ -196,35 +215,28 @@ sudo apt install gnupg
 Важно:
 
 - пароль шифрования сейчас хранится в `~/.backup_tool/config.json`
-- для production лучше использовать внешнее хранилище секретов или S3 SSE
+- для production лучше использовать отдельное хранилище секретов или S3 SSE
 
 ## Auto-backup через cron
 
-Инструмент умеет запускаться автоматически через `cron`.
+Скрипт можно запускать автоматически через `cron`.
 
-Логика такая:
+Логика:
 
-- `cron` запускает скрипт каждую минуту
-- скрипт сверяет текущее время со списком `backup_times`
-- если время совпало, создаётся backup всех путей из `backup_paths`
+- `cron` запускает команду каждую минуту
+- инструмент сверяет текущее время со списком `backup_times`
+- при совпадении создаёт backup для всех путей из `backup_paths`
 
-Установка cron-задачи:
-
-```bash
-python3 backup_tool.py install-cron-cmd
-```
-
-Удаление cron-задачи:
+Установить cron-задачу можно через меню или командами:
 
 ```bash
-python3 backup_tool.py remove-cron-cmd
+backups3 install-cron-cmd
+backups3 remove-cron-cmd
 ```
-
-Также это можно сделать через интерактивное меню.
 
 ## Конфиг
 
-Настройки хранятся в:
+Файл настроек:
 
 ```bash
 ~/.backup_tool/config.json
@@ -260,43 +272,9 @@ python3 backup_tool.py remove-cron-cmd
 }
 ```
 
-## Примеры команд
-
-```bash
-python3 backup_tool.py
-python3 backup_tool.py backup --path /home/user/documents
-python3 backup_tool.py list
-python3 backup_tool.py restore
-python3 backup_tool.py restore --overwrite
-python3 backup_tool.py setup
-python3 backup_tool.py --auto
-```
-
-Если установлен launcher:
-
-```bash
-backups3
-backups3 backup --path /home/user/documents
-backups3 list
-backups3 restore
-```
-
-## Ограничения и замечания
-
-- проект ориентирован в первую очередь на Linux-среду
-- глобальная команда `backups3` ставится через `setup.sh` в `/usr/local/bin`
-- секреты пока не вынесены во внешнее безопасное хранилище
-- для production стоит отдельно продумать хранение ключей и политику доступа к S3
-
 ## Troubleshooting
 
 ### `backups3: command not found`
-
-Причины обычно такие:
-
-- не запускался `setup.sh`
-- `/usr/local/bin` отсутствует в `PATH`
-- установка выполнялась без `sudo`
 
 Проверьте:
 
@@ -304,6 +282,15 @@ backups3 restore
 which backups3
 echo $PATH
 ls -l /usr/local/bin/backups3
+```
+
+### Не работает one-line установка
+
+Проверьте наличие `curl` или `wget`:
+
+```bash
+which curl
+which wget
 ```
 
 ### Не работает cron

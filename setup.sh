@@ -146,10 +146,7 @@ ensure_system_pip_support() {
     manager="$(detect_pkg_manager)"
 
     case "$manager" in
-        apt)
-            install_packages "$manager" python3-pip
-            ;;
-        dnf|yum|zypper)
+        apt|dnf|yum|zypper)
             install_packages "$manager" python3-pip
             ;;
         pacman)
@@ -162,29 +159,34 @@ ensure_system_pip_support() {
     esac
 }
 
-ensure_pip_in_venv() {
-    if [ -x "$VENV_DIR/bin/pip" ]; then
-        return
+venv_has_python() {
+    [ -x "$VENV_DIR/bin/python" ]
+}
+
+venv_has_working_pip() {
+    venv_has_python && run_root "$VENV_DIR/bin/python" -m pip --version >/dev/null 2>&1
+}
+
+bootstrap_pip_in_venv() {
+    if ! venv_has_python; then
+        return 1
     fi
 
-    echo "Repairing missing pip inside virtual environment..."
-
-    if [ -x "$VENV_DIR/bin/python" ] && run_root "$VENV_DIR/bin/python" -m ensurepip --upgrade >/dev/null 2>&1; then
-        :
-    else
-        ensure_system_pip_support
-        echo "Recreating virtual environment..."
-        run_root rm -rf "$VENV_DIR"
-        run_root python3 -m venv "$VENV_DIR"
-        if [ ! -x "$VENV_DIR/bin/pip" ] && [ -x "$VENV_DIR/bin/python" ]; then
-            run_root "$VENV_DIR/bin/python" -m ensurepip --upgrade >/dev/null 2>&1 || true
-        fi
+    if run_root "$VENV_DIR/bin/python" -m ensurepip --upgrade >/dev/null 2>&1; then
+        return 0
     fi
 
-    if [ ! -x "$VENV_DIR/bin/pip" ]; then
-        echo "pip is still unavailable inside the virtual environment."
-        exit 1
+    if run_root "$VENV_DIR/bin/python" -m pip --version >/dev/null 2>&1; then
+        return 0
     fi
+
+    return 1
+}
+
+recreate_venv() {
+    echo "Recreating virtual environment..."
+    run_root rm -rf "$VENV_DIR"
+    run_root python3 -m venv "$VENV_DIR"
 }
 
 ensure_valid_venv() {
@@ -193,13 +195,28 @@ ensure_valid_venv() {
         run_root python3 -m venv "$VENV_DIR"
     fi
 
-    if [ ! -x "$VENV_DIR/bin/python" ]; then
-        echo "Recreating broken virtual environment..."
-        run_root rm -rf "$VENV_DIR"
-        run_root python3 -m venv "$VENV_DIR"
+    if ! venv_has_python; then
+        recreate_venv
     fi
 
-    ensure_pip_in_venv
+    if venv_has_working_pip; then
+        return
+    fi
+
+    echo "Repairing missing pip inside virtual environment..."
+    if bootstrap_pip_in_venv && venv_has_working_pip; then
+        return
+    fi
+
+    ensure_system_pip_support
+    recreate_venv
+
+    if bootstrap_pip_in_venv && venv_has_working_pip; then
+        return
+    fi
+
+    echo "pip is still unavailable inside the virtual environment."
+    exit 1
 }
 
 echo "Installing Backup Tool..."
@@ -217,8 +234,8 @@ run_root cp "$SCRIPT_DIR/requirements.txt" "$APP_DIR/requirements.txt"
 ensure_valid_venv
 
 echo "Installing Python dependencies..."
-run_root "$VENV_DIR/bin/pip" install --upgrade pip
-run_root "$VENV_DIR/bin/pip" install -r "$APP_DIR/requirements.txt"
+run_root "$VENV_DIR/bin/python" -m pip install --upgrade pip
+run_root "$VENV_DIR/bin/python" -m pip install -r "$APP_DIR/requirements.txt"
 
 echo "Installing global launcher..."
 run_root tee "$LAUNCHER" > /dev/null <<EOF

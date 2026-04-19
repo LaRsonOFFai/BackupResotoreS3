@@ -60,7 +60,10 @@ def safe_input(prompt: str = "") -> str:
         sys.stdout.write(prompt)
         sys.stdout.flush()
     try:
-        return sys.stdin.readline().strip()
+        line = sys.stdin.readline()
+        if line == "":
+            raise EOFError
+        return line.strip()
     except UnicodeDecodeError:
         # Если Unicode ошибка — читаем как байты и декодируем
         return ""
@@ -72,7 +75,10 @@ def safe_int_input() -> int:
         try:
             value = int(safe_input().strip())
             return value
-        except (ValueError, EOFError):
+        except EOFError:
+            click.echo("❌ Нет интерактивного ввода. Запустите команду в терминале ещё раз.")
+            raise click.Abort()
+        except ValueError:
             click.echo("❌ Введите число")
 
 

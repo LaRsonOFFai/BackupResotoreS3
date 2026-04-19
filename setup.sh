@@ -292,4 +292,10 @@ echo "You can now run the tool from any directory with:"
 echo "  backups3"
 echo ""
 echo "Launching Backup Tool..."
-exec "$LAUNCHER"
+if [ -r /dev/tty ] && [ -w /dev/tty ]; then
+    exec "$LAUNCHER" </dev/tty >/dev/tty 2>/dev/tty
+fi
+
+echo "Interactive terminal is unavailable, so the program was not auto-launched."
+echo "Run it manually with:"
+echo "  backups3"

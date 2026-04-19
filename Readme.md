@@ -29,6 +29,7 @@ wget -qO- https://raw.githubusercontent.com/LaRsonOFFai/BackupResotoreS3/main/in
 Что делает этот установщик:
 
 - скачивает нужные файлы проекта
+- при необходимости доустанавливает `python3` и поддержку `venv`
 - ставит приложение в `/opt/backup-tool`
 - создаёт отдельный `venv` в `/opt/backup-tool/venv`
 - ставит глобальную команду `backups3` в `/usr/local/bin/backups3`
@@ -65,6 +66,8 @@ chmod +x setup.sh
 - `sudo`
 - `curl` или `wget` для one-line установки
 - `gpg`, если используется шифрование
+
+На Debian/Ubuntu установщик сам пытается поставить недостающие системные пакеты вроде `python3-venv`.
 
 Python-зависимости:
 

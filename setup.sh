@@ -19,6 +19,24 @@ have_cmd() {
     command -v "$1" >/dev/null 2>&1
 }
 
+download_file() {
+    local url="$1"
+    local output="$2"
+
+    if have_cmd curl; then
+        curl -fsSL "$url" -o "$output"
+        return
+    fi
+
+    if have_cmd wget; then
+        wget -qO "$output" "$url"
+        return
+    fi
+
+    echo "curl or wget is required."
+    exit 1
+}
+
 detect_pkg_manager() {
     if have_cmd apt-get; then
         echo "apt"
@@ -183,6 +201,24 @@ bootstrap_pip_in_venv() {
     return 1
 }
 
+install_pip_with_get_pip() {
+    if ! venv_has_python; then
+        return 1
+    fi
+
+    local tmp_dir
+    tmp_dir="$(mktemp -d)"
+    download_file "https://bootstrap.pypa.io/get-pip.py" "$tmp_dir/get-pip.py"
+
+    if run_root "$VENV_DIR/bin/python" "$tmp_dir/get-pip.py" >/dev/null 2>&1; then
+        rm -rf "$tmp_dir"
+        return 0
+    fi
+
+    rm -rf "$tmp_dir"
+    return 1
+}
+
 recreate_venv() {
     echo "Recreating virtual environment..."
     run_root rm -rf "$VENV_DIR"
@@ -212,6 +248,11 @@ ensure_valid_venv() {
     recreate_venv
 
     if bootstrap_pip_in_venv && venv_has_working_pip; then
+        return
+    fi
+
+    echo "Falling back to get-pip.py..."
+    if install_pip_with_get_pip && venv_has_working_pip; then
         return
     fi
 
